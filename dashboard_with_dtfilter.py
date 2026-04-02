@@ -5,7 +5,9 @@ from datetime import datetime
 from analytics import load_data
 
 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-df = load_data()
+# df = load_data()
+df = pd.read_csv("data_uploads/pipeline_runs_202604021718.csv")
+
 # pipeline_names = df["pipeline_name"].drop_duplicates().tolist()
 # print(pipeline_names)
 pipeline_names = df["pipeline_name"].drop_duplicates().tolist()

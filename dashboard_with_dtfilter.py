@@ -3,6 +3,8 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 from analytics import load_data
+import matplotlib.pyplot as plt
+
 
 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 # df = load_data()
@@ -11,7 +13,7 @@ df = pd.read_csv("data_uploads/pipeline_runs_202604021718.csv")
 # pipeline_names = df["pipeline_name"].drop_duplicates().tolist()
 # print(pipeline_names)
 pipeline_names = df["pipeline_name"].drop_duplicates().tolist()
-run_dates = pd.date_range(start="2026-01-01", periods=len(pipeline_names), freq="ME")
+run_dates = pd.date_range(start="2026-01-01", periods=len(pipeline_names), freq="D")
 
 total_runs_list = []
 total_success_list = []
@@ -35,20 +37,13 @@ for pipeline in pipeline_names:
     manual_triggers_list.append(manual_triggers)
     avg_duration_list.append(avg_duration)
     total_runs_list.append(int(total_runs))
-    print("success_percent")
-    print(round(success_percent,2))
+
     total_success_list.append(success_percent)
     total_failed_list.append(int(failed_runs))
     
     owner = pipeline_df["owner"].iloc[0]  # or "team" if your column is named differently
     owner_list.append(owner)
 
-print(len(total_runs_list))
-print(len(total_success_list))
-print(len(total_failed_list))
-print(len(avg_duration_list))
-print(len(manual_triggers_list))
-print(owner_list)
 
 data = {
     "Job Name": pipeline_names,
@@ -62,7 +57,6 @@ data = {
 }
 
 df = pd.DataFrame(data)
-print(df["Run Date"] )
 # -----------------------------
 # Streamlit Layout
 # -----------------------------
@@ -75,7 +69,11 @@ st.title("📊 Databricks Yearly Job Monitoring Report (2026)")
 # -----------------------------
 st.sidebar.header("Filter Options")
 start_date = st.sidebar.date_input("Start Date", df["Run Date"].min())
+
 end_date = st.sidebar.date_input("End Date", df["Run Date"].max())
+print("START DATE")
+print(start_date)
+print(end_date)
 
 # Filter dataframe by date
 filtered_df = df[(df["Run Date"] >= pd.to_datetime(start_date)) & (df["Run Date"] <= pd.to_datetime(end_date))]
@@ -121,8 +119,7 @@ summary_df = filtered_df.groupby("Job Name").agg({
 # Round Success % and Avg Duration
 summary_df["Success %"] = summary_df["Success %"].map("{:.2f}".format)
 summary_df["Avg Duration (min)"] = summary_df["Avg Duration (min)"].map("{:.2f}".format)
-print("============")
-print(summary_df["Success %"])
+
 
 # Display with background gradient
 st.dataframe(
@@ -130,6 +127,7 @@ st.dataframe(
               .style.background_gradient(subset=["Success %"], cmap="Greens")
               .set_properties(**{"text-align": "center"})
 )
+
 # -----------------------------
 # Charts & Trends
 # -----------------------------
@@ -145,19 +143,45 @@ color_map = {
 }
 fig1 = px.bar(df_chart_melt, x="Job Name", y="Value", color="Metric",color_discrete_map=color_map,barmode="group",
               title="Job Success % vs Failures", height=400)
-st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig1, width='stretch')
 
 # Average Duration Chart
 fig2 = px.bar(filtered_df.groupby("Job Name")["Avg Duration (min)"].mean().reset_index(),
               x="Job Name", y="Avg Duration (min)", color="Avg Duration (min)",
               title="Average Job Duration (min)", height=400)
-st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig2, width='stretch')
 
 # Failures Heatmap
 fig3 = px.imshow(filtered_df.groupby("Job Name")["Failures"].sum().to_frame().T, text_auto=True,
                  labels=dict(x="Job Name", y="Metric", color="Failures"),
                  x=filtered_df["Job Name"].unique(), y=["Failures"], title="Failures Heatmap")
-st.plotly_chart(fig3, use_container_width=True)
+st.plotly_chart(fig3, width='stretch')
+
+# Convert Success % back to float (since you formatted it as string earlier)
+summary_df["Success %"] = summary_df["Success %"].astype(float)
+
+# Total runs and failures
+total_runs = summary_df["Total Runs"].sum()
+total_failures = summary_df["Failures"].sum()
+
+# Compute total successes
+total_success = total_runs - total_failures
+
+# Pie chart with higher DPI
+pie_fig, ax = plt.subplots(figsize=(4, 4), dpi=150)  # bigger and higher DPI
+ax.pie(
+    [total_success, total_failures],
+    labels=[f"Success ({total_success})", f"Fail ({total_failures})"],
+    autopct="%1.1f%%",
+    colors=["#4CAF50", "#F44336"],
+    startangle=90,
+    textprops={'fontsize': 6}  # adjust label text size
+)
+
+st.header("Overall Pipeline Success vs Fail")
+# Make it fit nicely in Streamlit
+st.pyplot(pie_fig, use_container_width=True)
+
 
 # -----------------------------
 # Team Filter

@@ -10,8 +10,7 @@ current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 # df = load_data()
 df = pd.read_csv("data_uploads/pipeline_runs_202604021718.csv")
 
-# pipeline_names = df["pipeline_name"].drop_duplicates().tolist()
-# print(pipeline_names)
+
 pipeline_names = df["pipeline_name"].drop_duplicates().tolist()
 run_dates = pd.date_range(start="2026-01-01", periods=len(pipeline_names), freq="D")
 
@@ -71,9 +70,6 @@ st.sidebar.header("Filter Options")
 start_date = st.sidebar.date_input("Start Date", df["Run Date"].min())
 
 end_date = st.sidebar.date_input("End Date", df["Run Date"].max())
-print("START DATE")
-print(start_date)
-print(end_date)
 
 # Filter dataframe by date
 filtered_df = df[(df["Run Date"] >= pd.to_datetime(start_date)) & (df["Run Date"] <= pd.to_datetime(end_date))]
@@ -124,6 +120,7 @@ summary_df["Avg Duration (min)"] = summary_df["Avg Duration (min)"].map("{:.2f}"
 # Display with background gradient
 st.dataframe(
     summary_df.sort_values(by="Failures", ascending=False)
+               .reset_index(drop=True)
               .style.background_gradient(subset=["Success %"], cmap="Greens")
               .set_properties(**{"text-align": "center"})
 )
@@ -152,9 +149,11 @@ fig2 = px.bar(filtered_df.groupby("Job Name")["Avg Duration (min)"].mean().reset
 st.plotly_chart(fig2, width='stretch')
 
 # Failures Heatmap
-fig3 = px.imshow(filtered_df.groupby("Job Name")["Failures"].sum().to_frame().T, text_auto=True,
+
+failures_sum = filtered_df.groupby("Job Name")["Failures"].sum().to_frame().T
+fig3 = px.imshow(failures_sum, text_auto=True,
                  labels=dict(x="Job Name", y="Metric", color="Failures"),
-                 x=filtered_df["Job Name"].unique(), y=["Failures"], title="Failures Heatmap")
+                 x=failures_sum.columns, y=["Failures"], title="Failures Heatmap")
 st.plotly_chart(fig3, width='stretch')
 
 # Convert Success % back to float (since you formatted it as string earlier)
